@@ -448,6 +448,7 @@ function TaskJoinMachineField(props: {
   readonly options: ReadonlyArray<TaskGraphJoinMachine>;
   readonly labels: TaskGraphLabels;
   readonly disabled: boolean;
+  readonly titleOf: (key: string) => string;
   readonly onChoose: (dependencyKey: string | null) => void;
 }) {
   const id = useId();
@@ -457,6 +458,12 @@ function TaskJoinMachineField(props: {
   const optionLabel = (option: TaskGraphJoinMachine) =>
     `${props.labels.machineLabel(option.machine)}, continuing ${option.dependency.title}`;
   const chosen = props.options.find((option) => option.dependency.key === continued);
+  // The continued dependency is left out of the options while its machine is unknown,
+  // such as when it is balanced automatically and has not started yet.
+  const pendingLabel =
+    continued !== null && chosen === undefined
+      ? `Machine not known yet, continuing ${props.titleOf(continued)}`
+      : null;
   return (
     <div className="space-y-1.5">
       <Label htmlFor={`${id}-join`}>Bring branches together on</Label>
@@ -472,11 +479,16 @@ function TaskJoinMachineField(props: {
       >
         <SelectTrigger id={`${id}-join`} size="sm">
           <SelectValue>
-            {chosen === undefined ? "Any machine (new worktree)" : optionLabel(chosen)}
+            {chosen !== undefined
+              ? optionLabel(chosen)
+              : (pendingLabel ?? "Any machine (new worktree)")}
           </SelectValue>
         </SelectTrigger>
         <SelectPopup>
           <SelectItem value={JOIN_AUTO}>Any machine (new worktree)</SelectItem>
+          {pendingLabel !== null && continued !== null ? (
+            <SelectItem value={joinValue(continued)}>{pendingLabel}</SelectItem>
+          ) : null}
           {props.options.map((option) => (
             <SelectItem
               key={option.dependency.key}
@@ -563,6 +575,7 @@ function NodePanel(props: {
             options={joinMachines}
             labels={props.labels}
             disabled={!canEdit}
+            titleOf={(key) => graph.nodes.find((entry) => entry.key === key)?.title ?? key}
             onChoose={(dependencyKey) =>
               void commands.edit([
                 {

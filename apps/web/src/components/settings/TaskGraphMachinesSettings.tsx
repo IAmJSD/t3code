@@ -262,11 +262,12 @@ function ConnectedMachineRow({
   const targetUrl = Option.getOrNull(
     useAtomValue(environmentSession.preparedConnectionValueAtom(environmentId)),
   )?.httpBaseUrl;
-  // The environment redeems the pairing at the address this app uses. A loopback address only
-  // works when this app also reaches the environment on loopback, so both run on this computer.
+  // The environment redeems the pairing at the address this app uses, so a loopback address
+  // usually fails from another computer. Both can still share a computer this app reaches over
+  // the network, so this only warns; the pairing attempt reports whether it worked.
   const candidateHost = hostnameOf(candidateUrl);
   const targetHost = hostnameOf(targetUrl);
-  const unreachable =
+  const likelyUnreachable =
     candidateHost !== null &&
     targetHost !== null &&
     isLoopbackHost(candidateHost) &&
@@ -281,7 +282,7 @@ function ConnectedMachineRow({
 
   const addMachine = async () => {
     const connection = readPreparedConnection(candidate.environmentId);
-    if (adding || connection === null || unreachable) return;
+    if (adding || connection === null) return;
     setAdding(true);
     setError(null);
     try {
@@ -314,7 +315,7 @@ function ConnectedMachineRow({
         <Button
           size="sm"
           variant="outline"
-          disabled={adding || !canGrant || unreachable}
+          disabled={adding || !canGrant}
           onClick={() => void addMachine()}
         >
           {adding ? <Spinner size="sm" /> : null}
@@ -325,10 +326,11 @@ function ConnectedMachineRow({
         <p className="text-xs text-muted-foreground">
           Your session on {candidate.label} cannot pair other machines.
         </p>
-      ) : unreachable ? (
+      ) : likelyUnreachable ? (
         <p className="text-xs text-muted-foreground">
-          This app reaches {candidate.label} at a local address that {environmentLabel} cannot use.
-          Paste a pairing link from {candidate.label} with an address it can reach.
+          This app reaches {candidate.label} at a local address, which {environmentLabel} can only
+          use if both run on the same computer. If adding fails, paste a pairing link from{" "}
+          {candidate.label} with an address {environmentLabel} can reach.
         </p>
       ) : null}
       {error ? <p className="text-xs text-destructive">{error}</p> : null}
