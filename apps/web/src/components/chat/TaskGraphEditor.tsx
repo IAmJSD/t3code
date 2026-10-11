@@ -472,7 +472,10 @@ function TaskJoinMachineField(props: {
         disabled={props.disabled}
         onValueChange={(value) => {
           if (value === current) return;
-          if (value === JOIN_AUTO) props.onChoose(null);
+          if (value === JOIN_AUTO) {
+            props.onChoose(null);
+            return;
+          }
           const option = props.options.find((entry) => joinValue(entry.dependency.key) === value);
           if (option !== undefined) props.onChoose(option.dependency.key);
         }}
