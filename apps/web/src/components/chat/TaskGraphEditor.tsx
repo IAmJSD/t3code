@@ -1039,6 +1039,7 @@ function TaskNodePlacementFields(props: {
       <div className="space-y-1.5">
         <Label>Model</Label>
         <ProviderModelPicker
+          environmentId={labels.environmentId}
           activeInstanceId={activeInstanceId}
           model={activeModel}
           lockedProvider={null}
