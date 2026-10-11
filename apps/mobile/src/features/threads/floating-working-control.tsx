@@ -242,13 +242,15 @@ export function FloatingWorkingControl(props: {
           accessibilityHint="Opens this thread's task graphs"
           onPress={props.onOpenTaskGraph}
           onLayout={(event) => setTaskGraphWidth(event.nativeEvent.layout.width)}
+          // Capped like the queue so agents, graph and queue still fit on a narrow screen.
+          style={{ maxWidth: Math.min(overlayWidth, windowWidth) * 0.4 }}
           className="h-11 flex-row items-center gap-1.5 px-3 active:opacity-70"
         >
           {hasStatus || hasPreview || hasAgents ? (
             <View className="mr-1 h-4 w-px bg-border" />
           ) : null}
           <SubagentStatusDot tone={taskGraph.tone} />
-          <Text className="font-t3-medium text-xs tabular-nums" numberOfLines={1}>
+          <Text className="shrink font-t3-medium text-xs tabular-nums" numberOfLines={1}>
             {taskGraph.label}
           </Text>
         </Pressable>

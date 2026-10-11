@@ -10786,10 +10786,19 @@ export default function ChatView(props: ChatViewProps) {
         const failure = squashAtomCommandFailure(createResult);
         return failure instanceof Error ? failure.message : "Could not create the thread.";
       }
-      const error = await newTaskGraph.createAndRun(nextThreadId, nodes);
-      if (error !== null) {
+      const created = await newTaskGraph.createAndRun(nextThreadId, nodes);
+      if (created.outcome === "failed") {
         await deleteThread({ environmentId, input: { threadId: nextThreadId } });
-        return error;
+        return created.error;
+      }
+      // An interrupted request may have started the graph: keep its thread and open it
+      // rather than risk running the same tasks twice from the draft.
+      if (created.outcome === "uncertain") {
+        toastManager.add({
+          type: "warning",
+          title: "The task graph request was interrupted",
+          description: "Check the new chat to see whether the graph started.",
+        });
       }
       // The graph is running now, so its thread stays even if the shell is slow to arrive;
       // waiting only keeps the route from opening before the thread is known.

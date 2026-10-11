@@ -171,12 +171,14 @@ export function taskGraphNodeSharesPullRequestBranch(nodes: Nodes, node: TaskGra
  * the nodes sharing its branch, the first ancestor with a pull request of its
  * own is the layer below it in a stack; with none, the PR carries everything
  * since the graph's base. So branch ends alone give one PR each against the
- * base, and PRs on inner nodes too give a stack.
+ * base, and PRs on inner nodes too give a stack. Null when that base is "HEAD"
+ * (a thread with no branch): it is no branch to target, so git picks the
+ * repository's default branch.
  */
 export function taskGraphPullRequestBase(
   graph: Pick<TaskGraph, "nodes" | "baseRef">,
   node: TaskGraphNode,
-): string {
+): string | null {
   const byKey = new Map(graph.nodes.map((candidate) => [candidate.key, candidate]));
   let sharesBranch = node.workspace === "dependency";
   let current = byKey.get(node.dependsOn[0] ?? "");
@@ -194,7 +196,7 @@ export function taskGraphPullRequestBase(
     else if (sharesBranch) sharesBranch = current.workspace === "dependency";
     current = byKey.get(current.dependsOn[0] ?? "");
   }
-  return graph.baseRef;
+  return graph.baseRef === "HEAD" ? null : graph.baseRef;
 }
 
 const reopened = (node: TaskGraphNode): TaskGraphNode => ({

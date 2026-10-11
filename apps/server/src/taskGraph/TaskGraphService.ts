@@ -423,6 +423,7 @@ const make = Effect.gen(function* () {
       // With peers paired, a dependent may run elsewhere and needs the branch on origin.
       const push =
         (yield* peers.hasPeers) || taskGraphNodeSharesPullRequestBranch(graph.nodes, node);
+      const baseBranch = opensPullRequest ? taskGraphPullRequestBase(graph, node) : null;
       let failedPhase: string | null = null;
       const delivered = yield* git
         .runStackedAction(
@@ -430,7 +431,7 @@ const make = Effect.gen(function* () {
             actionId: `task-graph:${graph.id}:${node.key}:${node.threadId}`,
             cwd: worktreePath,
             action: opensPullRequest ? "commit_push_pr" : push ? "commit_push" : "commit",
-            ...(opensPullRequest ? { baseBranch: taskGraphPullRequestBase(graph, node) } : {}),
+            ...(baseBranch === null ? {} : { baseBranch }),
             ...(node.threadId === null ? {} : { threadId: node.threadId }),
             projectId: graph.projectId,
           },

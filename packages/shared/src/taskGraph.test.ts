@@ -230,6 +230,8 @@ describe("workspaces and pull request bases", () => {
   it("points a lone branch-end PR at the graph base so it carries all the work", () => {
     const nodes = chain();
     expect(taskGraphPullRequestBase({ nodes, baseRef: "main" }, nodes[2]!)).toBe("main");
+    // A thread with no branch leaves the PR base to the repository default.
+    expect(taskGraphPullRequestBase({ nodes, baseRef: "HEAD" }, nodes[2]!)).toBeNull();
   });
 
   it("stacks PRs when inner nodes open their own", () => {

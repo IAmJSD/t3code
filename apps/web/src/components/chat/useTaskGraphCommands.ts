@@ -105,7 +105,7 @@ export const useTaskGraphEditorRequest = create<{
 /**
  * Creates graphs from the composer. `start` puts an empty draft on an
  * existing thread and opens its editor; `create` sends a finished graph.
- * Both resolve to an error message or null.
+ * `start` resolves to an error message or null.
  */
 export function useNewTaskGraph(environmentId: EnvironmentId) {
   const canCreate = useAtomValue(serverEnvironment.createTaskGraph.permissionAtom(environmentId));
@@ -115,17 +115,23 @@ export function useNewTaskGraph(environmentId: EnvironmentId) {
     threadId: ThreadId,
     nodes: ReadonlyArray<TaskGraphNodeInput>,
     run: boolean,
-  ): Promise<{ readonly graphId: string } | { readonly error: string }> => {
+  ): Promise<
+    { readonly graphId: string } | { readonly error: string; readonly interrupted: boolean }
+  > => {
     if (!readEnvironmentScope(environmentId, AuthOrchestrationOperateScope)) {
-      return { error: "You don't have permission to start task graphs here." };
+      return { error: "You don't have permission to start task graphs here.", interrupted: false };
     }
     const result = await createGraph({
       environmentId,
       input: { threadId, title: "New task graph", nodes, run },
     });
-    return result._tag === "Success"
-      ? { graphId: result.value.graph.id }
-      : { error: failureMessage(result) ?? "The request was interrupted. Try again." };
+    if (result._tag === "Success") return { graphId: result.value.graph.id };
+    // An interrupted request may still have reached the server and created the graph.
+    const interrupted = isAtomCommandInterrupted(result);
+    return {
+      error: failureMessage(result) ?? "The request was interrupted. Try again.",
+      interrupted,
+    };
   };
   const start = async (threadId: ThreadId): Promise<string | null> => {
     const result = await send(threadId, [FIRST_TASK], false);
@@ -133,12 +139,22 @@ export function useNewTaskGraph(environmentId: EnvironmentId) {
     request(result.graphId, FIRST_TASK.key);
     return null;
   };
+  /**
+   * Creates and starts a finished graph. "uncertain" means the request was
+   * interrupted, so the graph may exist; the caller must not discard its thread.
+   */
   const createAndRun = async (
     threadId: ThreadId,
     nodes: ReadonlyArray<TaskGraphNode>,
-  ): Promise<string | null> => {
+  ): Promise<
+    | { readonly outcome: "created" | "uncertain" }
+    | { readonly outcome: "failed"; readonly error: string }
+  > => {
     const result = await send(threadId, nodes.map(taskGraphNodeInput), true);
-    return "error" in result ? result.error : null;
+    if (!("error" in result)) return { outcome: "created" };
+    return result.interrupted
+      ? { outcome: "uncertain" }
+      : { outcome: "failed", error: result.error };
   };
   return { canCreate, start, createAndRun };
 }
