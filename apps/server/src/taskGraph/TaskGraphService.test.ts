@@ -619,3 +619,21 @@ it.effect("only a failed PR step leaves a node succeeded; a failed commit fails 
     }),
   ),
 );
+
+it.effect("delivers a node once when its completion arrives twice", () =>
+  withService((service, harness) =>
+    Effect.gen(function* () {
+      yield* service.create({ threadId: PARENT, title: "Once", nodes: [node("a")], run: true });
+      const a = yield* Queue.take(harness.launches);
+      // Two terminal events for the same run, handled concurrently.
+      yield* harness.finish(a, { reply: "a done", branch: "t3/a" });
+      yield* harness.finish(a, { reply: "a done", branch: "t3/a" });
+      assert.include(yield* Deferred.await(harness.report), "finished: succeeded");
+      assert.equal(yield* Queue.take(harness.settled), a.threadId);
+      assert.deepEqual(
+        harness.gitActions.map((action) => action.cwd),
+        ["/worktrees/t3/a"],
+      );
+    }),
+  ),
+);

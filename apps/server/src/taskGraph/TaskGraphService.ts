@@ -548,19 +548,22 @@ const make = Effect.gen(function* () {
       const lastReply = projection.messages.findLast(
         (message) => message.role === "assistant" && message.text.trim().length > 0,
       );
-      const { stored } = yield* updateNode(graphId, key, (node) =>
-        node.status === "running"
-          ? {
-              ...node,
-              status: "delivering",
-              branch: projection.thread.branch,
-              worktreePath: projection.thread.worktreePath,
-              summary: lastReply === undefined ? null : taskGraphNodeSummary(lastReply.text),
-            }
-          : node,
-      );
+      // Completions run concurrently, so only the call that moves the node out of
+      // `running` under the lock delivers it; any overlapping call stops here.
+      let claimed = false;
+      const { stored } = yield* updateNode(graphId, key, (node) => {
+        if (node.status !== "running") return node;
+        claimed = true;
+        return {
+          ...node,
+          status: "delivering",
+          branch: projection.thread.branch,
+          worktreePath: projection.thread.worktreePath,
+          summary: lastReply === undefined ? null : taskGraphNodeSummary(lastReply.text),
+        };
+      });
       const node = stored.nodes.find((candidate) => candidate.key === key);
-      if (node === undefined || node.status !== "delivering") return;
+      if (!claimed || node === undefined || node.status !== "delivering") return;
       const worktreePath = projection.thread.worktreePath;
       // Work in the project folder is never committed.
       const delivered =
